@@ -81,6 +81,7 @@ export default function UserInput({
 		resetInput,
 		deletePlaceholder: _deletePlaceholder,
 		currentState,
+		cursorOffset,
 		setInputState,
 	} = inputState;
 
@@ -456,13 +457,13 @@ export default function UserInput({
 			(key.ctrl && inputChar === 'j') ||
 			(inputChar === '\n' && !key.return)
 		) {
-			updateInput(input + '\n');
+			updateInput(input + '\n', input.length + 1);
 			return;
 		}
 
 		// Support Shift+Enter if the terminal sends it properly
 		if (key.return && key.shift) {
-			updateInput(input + '\n');
+			updateInput(input + '\n', input.length + 1);
 			return;
 		}
 
@@ -550,6 +551,7 @@ export default function UserInput({
 					<TextInput
 						key={textInputKey}
 						value={input}
+						cursorOffset={cursorOffset}
 						onChange={updateInput}
 						onSubmit={handleSubmit}
 						placeholder="/ commands, ! bash, ↑/↓ history"

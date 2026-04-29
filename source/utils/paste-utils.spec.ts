@@ -74,7 +74,6 @@ test('handlePaste creates placeholder for large pastes', t => {
 	t.true(result!.displayValue.includes('[Paste #'));
 	t.true(result!.displayValue.includes('801 chars]'));
 
-	// Should contain the pasted content in the map
 	const pasteIds = Object.keys(result!.placeholderContent);
 	t.is(pasteIds.length, 1);
 	const pasteContent = result!.placeholderContent[
@@ -96,9 +95,7 @@ test('handlePaste inserts placeholder at pasteStartOffset (middle)', t => {
 	);
 
 	t.truthy(result);
-	t.true(result!.displayValue.startsWith('before '));
-	t.true(result!.displayValue.endsWith('after'));
-	t.true(result!.displayValue.includes('[Paste #1: 801 chars]'));
+	t.is(result!.displayValue, `before [Paste #1: 801 chars]after`);
 });
 
 test('handlePaste inserts placeholder at offset 0', t => {
@@ -106,8 +103,7 @@ test('handlePaste inserts placeholder at offset 0', t => {
 	const result = handlePaste(pastedText, 'tail text', {}, undefined, 0);
 
 	t.truthy(result);
-	t.true(result!.displayValue.startsWith('[Paste #1: 801 chars]'));
-	t.true(result!.displayValue.endsWith('tail text'));
+	t.is(result!.displayValue, `[Paste #1: 801 chars]tail text`);
 });
 
 test('handlePaste appends when offset equals length', t => {
@@ -145,8 +141,6 @@ test('handlePaste splices at offset even when pastedText is not present in curre
 	);
 
 	t.truthy(result);
-	t.true(result!.displayValue.startsWith('hello '));
-	t.true(result!.displayValue.endsWith('world'));
 	t.regex(result!.displayValue, /^hello \[Paste #1: \d+ chars\]world$/);
 });
 

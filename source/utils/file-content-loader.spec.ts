@@ -127,7 +127,7 @@ test('calculates token estimate', async t => {
 	t.true(result.success);
 	t.true(result.metadata.tokens > 0);
 	// Rough token estimate should be ~1/4 of character count
-	t.true(result.metadata.tokens <= result.metadata.size);
+	t.true(result.metadata.tokens <= result.content?.length);
 });
 
 test('stores absolute path in metadata', async t => {
@@ -173,4 +173,3 @@ test('allows large files when line range is specified', async t => {
 	// Should load the content (not metadata) since a line range was given
 	t.true(result.content!.startsWith('Path:'));
 });
-

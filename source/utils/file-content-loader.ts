@@ -94,7 +94,7 @@ export async function loadFileContent(
 					size: fileStats.size,
 					lineCount: 0,
 					lineRange,
-					tokens: Math.ceil(metadataContent.length / 4),
+					tokens: Math.ceil(fileStats.size / 4),
 				},
 			};
 		}

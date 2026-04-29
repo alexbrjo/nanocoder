@@ -10,6 +10,7 @@ export type Props = {
 	readonly showCursor?: boolean;
 	readonly highlightPastedText?: boolean;
 	readonly value: string;
+	readonly cursorOffset?: number;
 	readonly onChange: (value: string, cursorOffset: number) => void;
 	readonly onSubmit?: (value: string) => void;
 	readonly wrapWidth?: number;
@@ -17,6 +18,7 @@ export type Props = {
 
 function TextInput({
 	value: originalValue,
+	cursorOffset: cursorOffsetProp,
 	placeholder = '',
 	focus = true,
 	mask,
@@ -26,31 +28,23 @@ function TextInput({
 	onSubmit,
 	wrapWidth,
 }: Props) {
-	const [state, setState] = useState({
-		cursorOffset: (originalValue || '').length,
-		cursorWidth: 0,
-	});
+	const [internalCursorOffset, setInternalCursorOffset] = useState(
+		(originalValue || '').length,
+	);
+	const [cursorWidth, setCursorWidth] = useState(0);
 
-	const {cursorOffset, cursorWidth} = state;
+	const isControlled = cursorOffsetProp !== undefined;
+	const cursorOffset = isControlled ? cursorOffsetProp : internalCursorOffset;
 
 	useEffect(() => {
-		setState(previousState => {
-			if (!focus || !showCursor) {
-				return previousState;
-			}
-
-			const newValue = originalValue || '';
-
-			if (previousState.cursorOffset > newValue.length - 1) {
-				return {
-					cursorOffset: newValue.length,
-					cursorWidth: 0,
-				};
-			}
-
-			return previousState;
+		if (isControlled || !focus || !showCursor) {
+			return;
+		}
+		setInternalCursorOffset(prev => {
+			const len = (originalValue || '').length;
+			return prev > len - 1 ? len : prev;
 		});
-	}, [originalValue, focus, showCursor]);
+	}, [originalValue, focus, showCursor, isControlled]);
 
 	const cursorActualWidth = highlightPastedText ? cursorWidth : 0;
 	const value = mask ? mask.repeat(originalValue.length) : originalValue;
@@ -213,13 +207,13 @@ function TextInput({
 				nextCursorOffset = nextValue.length;
 			}
 
-			setState({
-				cursorOffset: nextCursorOffset,
-				cursorWidth: nextCursorWidth,
-			});
+			setCursorWidth(nextCursorWidth);
+			if (!isControlled) {
+				setInternalCursorOffset(nextCursorOffset);
+			}
 
-			if (nextValue !== originalValue) {
-				onChange(nextValue, cursorOffset);
+			if (nextValue !== originalValue || nextCursorOffset !== cursorOffset) {
+				onChange(nextValue, nextCursorOffset);
 			}
 		},
 		{isActive: focus},

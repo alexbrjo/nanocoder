@@ -35,6 +35,8 @@ export function useInputState() {
 		createEmptyInputState(),
 	);
 
+	const [cursorOffset, setCursorOffset] = useState(0);
+
 	const [undoStack, setUndoStack] = useState<InputState[]>([]);
 	const [redoStack, setRedoStack] = useState<InputState[]>([]);
 
@@ -66,12 +68,31 @@ export function useInputState() {
 
 	// Update input with paste detection and atomic deletion
 	const updateInput = useCallback(
-		(newInput: string, cursorOffset?: number) => {
+		(newInput: string, newCursor: number) => {
+			// Cursor-only change: no value diff means just move the cursor
+			if (newInput === currentState.displayValue) {
+				setCursorOffset(
+					Math.max(0, Math.min(newCursor, currentState.displayValue.length)),
+				);
+				return;
+			}
+
 			// First, check for atomic deletion (placeholder removal)
 			const atomicDeletionResult = handleAtomicDeletion(currentState, newInput);
 			if (atomicDeletionResult) {
 				// Atomic deletion occurred - apply it
 				pushToUndoStack(atomicDeletionResult);
+
+				const oldVal = currentState.displayValue;
+				const newVal = atomicDeletionResult.displayValue;
+				let deletionStart = 0;
+				while (
+					deletionStart < newVal.length &&
+					oldVal[deletionStart] === newVal[deletionStart]
+				) {
+					deletionStart++;
+				}
+				setCursorOffset(deletionStart);
 				return;
 			}
 
@@ -128,6 +149,10 @@ export function useInputState() {
 						placeholderContent: updatedPlaceholderContent,
 					});
 
+					const placeholderEnd =
+						newDisplayValue.indexOf(newPlaceholder) + newPlaceholder.length;
+					setCursorOffset(placeholderEnd);
+
 					// Update paste detector to the new display value
 					pasteDetectorRef.current.updateState(newDisplayValue);
 					lastPasteTimeRef.current = now; // Extend the window
@@ -162,6 +187,7 @@ export function useInputState() {
 					if (!placeholder) {
 						// Skip duplicate early detection
 						pasteDetectorRef.current.updateState(newInput);
+						setCursorOffset(newCursor);
 						return;
 					}
 
@@ -191,11 +217,18 @@ export function useInputState() {
 							placeholderContent: updatedPlaceholderContent,
 						});
 
+						const placeholderEnd =
+							newDisplayValue.indexOf(newPlaceholder) + newPlaceholder.length;
+						setCursorOffset(placeholderEnd);
+
 						pasteDetectorRef.current.updateState(newDisplayValue);
 						lastPasteTimeRef.current = now;
 						return;
 					}
 				}
+
+				const addedLength = newInput.length - currentState.displayValue.length;
+				const pasteStart = Math.max(0, newCursor - addedLength);
 
 				// Try to handle as paste (new paste)
 				const pasteResult = handlePaste(
@@ -203,7 +236,7 @@ export function useInputState() {
 					currentState.displayValue,
 					currentState.placeholderContent,
 					detection.method as 'rate' | 'size' | 'multiline',
-					cursorOffset,
+					pasteStart,
 				);
 
 				if (pasteResult) {
@@ -212,6 +245,10 @@ export function useInputState() {
 					// Update paste detector state to match the new display value (with placeholder)
 					// This prevents detection confusion on subsequent pastes
 					pasteDetectorRef.current.updateState(pasteResult.displayValue);
+
+					const placeholderLen =
+						pasteResult.displayValue.length - currentState.displayValue.length;
+					setCursorOffset(pasteStart + placeholderLen);
 
 					// Track this paste for potential chunked continuation
 					const pasteId = Object.keys(pasteResult.placeholderContent).find(
@@ -229,6 +266,7 @@ export function useInputState() {
 						displayValue: newInput,
 						placeholderContent: currentState.placeholderContent,
 					});
+					setCursorOffset(newCursor);
 				}
 			} else {
 				// Normal typing
@@ -236,6 +274,7 @@ export function useInputState() {
 					displayValue: newInput,
 					placeholderContent: currentState.placeholderContent,
 				});
+				setCursorOffset(newCursor);
 			}
 
 			// Update derived state
@@ -268,6 +307,7 @@ export function useInputState() {
 			setRedoStack(prev => [...prev, currentState]);
 			setUndoStack(newUndoStack);
 			setCurrentState(previousState);
+			setCursorOffset(previousState.displayValue.length);
 
 			// Update paste detector state
 			pasteDetectorRef.current.updateState(previousState.displayValue);
@@ -283,6 +323,7 @@ export function useInputState() {
 			setUndoStack(prev => [...prev, currentState]);
 			setRedoStack(newRedoStack);
 			setCurrentState(nextState);
+			setCursorOffset(nextState.displayValue.length);
 
 			// Update paste detector state
 			pasteDetectorRef.current.updateState(nextState.displayValue);
@@ -312,6 +353,7 @@ export function useInputState() {
 				displayValue: newDisplayValue,
 				placeholderContent: newPlaceholderContent,
 			});
+			setCursorOffset(newDisplayValue.length);
 		},
 		[currentState, pushToUndoStack],
 	);
@@ -324,6 +366,7 @@ export function useInputState() {
 		}
 
 		setCurrentState(createEmptyInputState());
+		setCursorOffset(0);
 		setUndoStack([]);
 		setRedoStack([]);
 		setHasLargeContent(false);
@@ -348,6 +391,7 @@ export function useInputState() {
 	// Set full InputState (for history navigation)
 	const setInputState = useCallback((newState: InputState) => {
 		setCurrentState(newState);
+		setCursorOffset(newState.displayValue.length);
 		pasteDetectorRef.current.updateState(newState.displayValue);
 	}, []);
 
@@ -357,6 +401,7 @@ export function useInputState() {
 			...prev,
 			displayValue: newInput,
 		}));
+		setCursorOffset(newInput.length);
 		pasteDetectorRef.current.updateState(newInput);
 	}, []);
 
@@ -375,6 +420,8 @@ export function useInputState() {
 		() => ({
 			// New spec-compliant interface
 			currentState,
+			cursorOffset,
+			setCursorOffset,
 			undoStack,
 			redoStack,
 			undo,
@@ -397,6 +444,7 @@ export function useInputState() {
 		}),
 		[
 			currentState,
+			cursorOffset,
 			undoStack,
 			redoStack,
 			undo,
