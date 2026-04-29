@@ -84,21 +84,80 @@ test('handlePaste creates placeholder for large pastes', t => {
 	t.is(pasteContent.type, PlaceholderType.PASTE);
 });
 
-test('handlePaste replaces pasted text with placeholder in display value', t => {
-	const pastedText = 'x'.repeat(802);
-	const currentDisplayValue = `prefix ${pastedText} suffix`;
-	const currentPlaceholderContent: Record<string, PlaceholderContent> = {};
-
+test('handlePaste inserts placeholder at pasteStartOffset (middle)', t => {
+	const pastedText = 'x'.repeat(801);
+	const currentDisplayValue = 'before after';
 	const result = handlePaste(
 		pastedText,
 		currentDisplayValue,
-		currentPlaceholderContent,
+		{},
+		undefined,
+		7,
 	);
 
 	t.truthy(result);
-	t.true(result!.displayValue.startsWith('prefix [Paste #'));
-	t.true(result!.displayValue.endsWith('802 chars] suffix'));
-	t.false(result!.displayValue.includes('x'.repeat(10))); // Original text should be gone
+	t.true(result!.displayValue.startsWith('before '));
+	t.true(result!.displayValue.endsWith('after'));
+	t.true(result!.displayValue.includes('[Paste #1: 801 chars]'));
+});
+
+test('handlePaste inserts placeholder at offset 0', t => {
+	const pastedText = 'x'.repeat(801);
+	const result = handlePaste(pastedText, 'tail text', {}, undefined, 0);
+
+	t.truthy(result);
+	t.true(result!.displayValue.startsWith('[Paste #1: 801 chars]'));
+	t.true(result!.displayValue.endsWith('tail text'));
+});
+
+test('handlePaste appends when offset equals length', t => {
+	const pastedText = 'x'.repeat(801);
+	const currentDisplayValue = 'head text';
+	const result = handlePaste(
+		pastedText,
+		currentDisplayValue,
+		{},
+		undefined,
+		currentDisplayValue.length,
+	);
+
+	t.truthy(result);
+	t.is(result!.displayValue, `head text[Paste #1: 801 chars]`);
+});
+
+test('handlePaste falls back to appending when offset omitted', t => {
+	const pastedText = 'x'.repeat(801);
+	const result = handlePaste(pastedText, 'head', {});
+
+	t.truthy(result);
+	t.is(result!.displayValue, `head[Paste #1: 801 chars]`);
+});
+
+test('handlePaste splices at offset even when pastedText is not present in currentDisplayValue', t => {
+	const pastedText = 'multi\nline\npaste\n'.repeat(60);
+	const currentDisplayValue = 'hello world';
+	const result = handlePaste(
+		pastedText,
+		currentDisplayValue,
+		{},
+		'multiline',
+		6,
+	);
+
+	t.truthy(result);
+	t.true(result!.displayValue.startsWith('hello '));
+	t.true(result!.displayValue.endsWith('world'));
+	t.regex(result!.displayValue, /^hello \[Paste #1: \d+ chars\]world$/);
+});
+
+test('handlePaste records detectionMethod on placeholder content', t => {
+	const pastedText = 'x'.repeat(801);
+	const result = handlePaste(pastedText, '', {}, 'multiline', 0);
+
+	t.truthy(result);
+	const id = Object.keys(result!.placeholderContent)[0];
+	const content = result!.placeholderContent[id] as PastePlaceholderContent;
+	t.is(content.detectionMethod, 'multiline');
 });
 
 test('handlePaste preserves existing pasted content', t => {

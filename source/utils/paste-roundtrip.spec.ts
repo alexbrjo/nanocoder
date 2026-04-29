@@ -5,6 +5,7 @@ import type {
 	PlaceholderContent,
 } from '../types/hooks';
 import {PlaceholderType} from '../types/hooks';
+import {handlePaste as realHandlePaste} from './paste-utils';
 
 console.log(`\npaste-roundtrip.spec.ts`);
 
@@ -424,7 +425,83 @@ test('multiple placeholders in single command workflow', t => {
 	t.is(assembled, `Compare ${firstCode} with ${secondCode}`);
 });
 
-// Test edge cases and error conditions
+test('mid-string paste places placeholder at cursor and assembles correctly', t => {
+	const prefix = 'Explain this snippet: ';
+	const suffix = ' and how it could be improved.';
+	const cursorOffset = prefix.length;
+
+	let currentState: InputState = {
+		displayValue: prefix + suffix,
+		placeholderContent: {},
+	};
+
+	const pastedText = 'x'.repeat(801);
+
+	const pasteResult = realHandlePaste(
+		pastedText,
+		currentState.displayValue,
+		currentState.placeholderContent,
+		'size',
+		cursorOffset,
+	);
+
+	t.truthy(pasteResult);
+	currentState = pasteResult!;
+
+	const pasteId = Object.keys(currentState.placeholderContent)[0];
+	const pasteContent = currentState.placeholderContent[
+		pasteId
+	] as PastePlaceholderContent;
+
+	t.is(
+		currentState.displayValue,
+		`${prefix}[Paste #${pasteId}: ${pastedText.length} chars]${suffix}`,
+	);
+	t.is(pasteContent.content, pastedText);
+	t.is(pasteContent.detectionMethod, 'size');
+
+	const assembled = assemblePrompt(currentState);
+	t.is(assembled, `${prefix}${pastedText}${suffix}`);
+});
+
+test('two pastes at different cursor positions assemble in order', t => {
+	let currentState: InputState = {
+		displayValue: 'Compare A: ! with B: ?',
+		placeholderContent: {},
+	};
+
+	const firstPaste = 'a'.repeat(801);
+	const firstOffset = 'Compare A: '.length;
+
+	const firstResult = realHandlePaste(
+		firstPaste,
+		currentState.displayValue,
+		currentState.placeholderContent,
+		'size',
+		firstOffset,
+	);
+	t.truthy(firstResult);
+	currentState = firstResult!;
+
+	const secondPaste = 'b'.repeat(802);
+	const secondOffset = currentState.displayValue.indexOf('?');
+
+	const secondResult = realHandlePaste(
+		secondPaste,
+		currentState.displayValue,
+		currentState.placeholderContent,
+		'size',
+		secondOffset,
+	);
+	t.truthy(secondResult);
+	currentState = secondResult!;
+
+	t.is(Object.keys(currentState.placeholderContent).length, 2);
+
+	const assembled = assemblePrompt(currentState);
+	t.is(assembled, `Compare A: ${firstPaste}! with B: ${secondPaste}?`);
+});
+
 test('paste handling edge cases', t => {
 	// Test with empty state
 	const emptyState: InputState = {displayValue: '', placeholderContent: {}};

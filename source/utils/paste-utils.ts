@@ -24,6 +24,7 @@ export function handlePaste(
 	currentDisplayValue: string,
 	currentPlaceholderContent: Record<string, PlaceholderContent>,
 	detectionMethod?: 'rate' | 'size' | 'multiline',
+	pasteStartOffset?: number,
 ): InputState | null {
 	if (pastedText.length === 0) {
 		return null;
@@ -59,10 +60,13 @@ export function handlePaste(
 	};
 
 	// For CLI paste detection, we need to replace the pasted text in the display value
-	// If the pasted text is at the end, replace it. Otherwise append the placeholder.
-	const newDisplayValue = currentDisplayValue.includes(pastedText)
-		? currentDisplayValue.replace(pastedText, placeholder)
-		: currentDisplayValue + placeholder;
+	// If the pasted text is at the end, replace it. Otherwise insert the placeholder
+	// at the offset that the paste was performed.
+	const insertAt = pasteStartOffset ?? currentDisplayValue.length;
+	const newDisplayValue =
+		currentDisplayValue.slice(0, insertAt) +
+		placeholder +
+		currentDisplayValue.slice(insertAt);
 
 	return {
 		displayValue: newDisplayValue,

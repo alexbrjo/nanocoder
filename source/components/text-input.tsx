@@ -10,7 +10,7 @@ export type Props = {
 	readonly showCursor?: boolean;
 	readonly highlightPastedText?: boolean;
 	readonly value: string;
-	readonly onChange: (value: string) => void;
+	readonly onChange: (value: string, cursorOffset: number) => void;
 	readonly onSubmit?: (value: string) => void;
 	readonly wrapWidth?: number;
 };
@@ -219,7 +219,7 @@ function TextInput({
 			});
 
 			if (nextValue !== originalValue) {
-				onChange(nextValue);
+				onChange(nextValue, cursorOffset);
 			}
 		},
 		{isActive: focus},

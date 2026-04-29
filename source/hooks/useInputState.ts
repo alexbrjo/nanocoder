@@ -66,7 +66,7 @@ export function useInputState() {
 
 	// Update input with paste detection and atomic deletion
 	const updateInput = useCallback(
-		(newInput: string) => {
+		(newInput: string, cursorOffset?: number) => {
 			// First, check for atomic deletion (placeholder removal)
 			const atomicDeletionResult = handleAtomicDeletion(currentState, newInput);
 			if (atomicDeletionResult) {
@@ -203,6 +203,7 @@ export function useInputState() {
 					currentState.displayValue,
 					currentState.placeholderContent,
 					detection.method as 'rate' | 'size' | 'multiline',
+					cursorOffset,
 				);
 
 				if (pasteResult) {
